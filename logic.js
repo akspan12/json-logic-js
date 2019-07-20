@@ -38,50 +38,50 @@ http://ricostacruz.com/cheatsheets/umdjs.html
 
   var jsonLogic = {};
   var operations = {
-    "==": function(a, b) {
+    "==": async function(a, b) {
       return a == b;
     },
-    "===": function(a, b) {
+    "===": async function(a, b) {
       return a === b;
     },
-    "!=": function(a, b) {
+    "!=": async function(a, b) {
       return a != b;
     },
-    "!==": function(a, b) {
+    "!==": async function(a, b) {
       return a !== b;
     },
-    ">": function(a, b) {
+    ">": async function(a, b) {
       return a > b;
     },
-    ">=": function(a, b) {
+    ">=": async function(a, b) {
       return a >= b;
     },
-    "<": function(a, b, c) {
+    "<": async function(a, b, c) {
       return (c === undefined) ? a < b : (a < b) && (b < c);
     },
-    "<=": function(a, b, c) {
+    "<=": async function(a, b, c) {
       return (c === undefined) ? a <= b : (a <= b) && (b <= c);
     },
-    "!!": function(a) {
+    "!!": async function(a) {
       return jsonLogic.truthy(a);
     },
-    "!": function(a) {
+    "!": async function(a) {
       return !jsonLogic.truthy(a);
     },
-    "%": function(a, b) {
+    "%": async function(a, b) {
       return a % b;
     },
-    "log": function(a) {
-      console.log(a); return a;
+    "log": async function(a) {
+      return a;
     },
-    "in": function(a, b) {
+    "in": async function(a, b) {
       if(!b || typeof b.indexOf === "undefined") return false;
       return (b.indexOf(a) !== -1);
     },
-    "cat": function() {
+    "cat": async function() {
       return Array.prototype.join.call(arguments, "");
     },
-    "substr":function(source, start, end) {
+    "substr": async function(source, start, end) {
       if(end < 0){
         // JavaScript doesn't support negative end, this emulates PHP behavior
         var temp = String(source).substr(start);
@@ -89,38 +89,38 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       }
       return String(source).substr(start, end);
     },
-    "+": function() {
+    "+": async function() {
       return Array.prototype.reduce.call(arguments, function(a, b) {
         return parseFloat(a, 10) + parseFloat(b, 10);
       }, 0);
     },
-    "*": function() {
+    "*": async function() {
       return Array.prototype.reduce.call(arguments, function(a, b) {
         return parseFloat(a, 10) * parseFloat(b, 10);
       });
     },
-    "-": function(a, b) {
+    "-": async function(a, b) {
       if(b === undefined) {
         return -a;
       }else{
         return a - b;
       }
     },
-    "/": function(a, b) {
+    "/": async function(a, b) {
       return a / b;
     },
-    "min": function() {
+    "min": async function() {
       return Math.min.apply(this, arguments);
     },
-    "max": function() {
+    "max": async function() {
       return Math.max.apply(this, arguments);
     },
-    "merge": function() {
+    "merge": async function() {
       return Array.prototype.reduce.call(arguments, function(a, b) {
         return a.concat(b);
       }, []);
     },
-    "var": function(a, b) {
+    "var": async function(a, b) {
       var not_found = (b === undefined) ? null : b;
       var data = this;
       if(typeof a === "undefined" || a==="" || a===null) {
@@ -139,7 +139,7 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       }
       return data;
     },
-    "missing": function() {
+    "missing": async function() {
       /*
       Missing can receive many keys as many arguments, like {"missing:[1,2]}
       Missing can also receive *one* argument that is an array of keys,
@@ -152,7 +152,7 @@ http://ricostacruz.com/cheatsheets/umdjs.html
 
       for(var i = 0; i < keys.length; i++) {
         var key = keys[i];
-        var value = jsonLogic.apply({"var": key}, this);
+        var value = await jsonLogic.apply({"var": key}, this);
         if(value === null || value === "") {
           missing.push(key);
         }
@@ -160,9 +160,9 @@ http://ricostacruz.com/cheatsheets/umdjs.html
 
       return missing;
     },
-    "missing_some": function(need_count, options) {
+    "missing_some": async function(need_count, options) {
       // missing_some takes two arguments, how many (minimum) items must be present, and an array of keys (just like 'missing') to check for presence.
-      var are_missing = jsonLogic.apply({"missing": options}, this);
+      var are_missing = await jsonLogic.apply({"missing": options}, this);
 
       if(options.length - are_missing.length >= need_count) {
         return [];
@@ -170,8 +170,8 @@ http://ricostacruz.com/cheatsheets/umdjs.html
         return are_missing;
       }
     },
-    "method": function(obj, method, args) {
-      return obj[method].apply(obj, args);
+    "method": async function(obj, method, args) {
+      return await obj[method].apply(obj, args);
     },
 
   };
@@ -206,12 +206,12 @@ http://ricostacruz.com/cheatsheets/umdjs.html
     return logic[jsonLogic.get_operator(logic)];
   };
 
-  jsonLogic.apply = function(logic, data) {
+  jsonLogic.apply = async function(logic, data) {
     // Does this array contain logic? Only one way to find out.
     if(Array.isArray(logic)) {
-      return logic.map(function(l) {
-        return jsonLogic.apply(l, data);
-      });
+      return await Promise.all(logic.map(async function(l) {
+          return await jsonLogic.apply(l, data);
+      }));
     }
     // You've recursed to a primitive, stop!
     if( ! jsonLogic.is_logic(logic) ) {
@@ -247,15 +247,15 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       given 0 parameters, return NULL (not great practice, but there was no Else)
       */
       for(i = 0; i < values.length - 1; i += 2) {
-        if( jsonLogic.truthy( jsonLogic.apply(values[i], data) ) ) {
-          return jsonLogic.apply(values[i+1], data);
+        if( jsonLogic.truthy( await jsonLogic.apply(values[i], data) ) ) {
+          return await jsonLogic.apply(values[i+1], data);
         }
       }
-      if(values.length === i+1) return jsonLogic.apply(values[i], data);
+      if(values.length === i+1) return await jsonLogic.apply(values[i], data);
       return null;
     }else if(op === "and") { // Return first falsy, or last
       for(i=0; i < values.length; i+=1) {
-        current = jsonLogic.apply(values[i], data);
+        current = await jsonLogic.apply(values[i], data);
         if( ! jsonLogic.truthy(current)) {
           return current;
         }
@@ -263,7 +263,7 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       return current; // Last
     }else if(op === "or") {// Return first truthy, or last
       for(i=0; i < values.length; i+=1) {
-        current = jsonLogic.apply(values[i], data);
+        current = await jsonLogic.apply(values[i], data);
         if( jsonLogic.truthy(current) ) {
           return current;
         }
@@ -274,7 +274,7 @@ http://ricostacruz.com/cheatsheets/umdjs.html
 
 
     }else if(op === 'filter'){
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = await jsonLogic.apply(values[0], data);
       scopedLogic = values[1];
 
       if ( ! Array.isArray(scopedData)) {
@@ -283,23 +283,23 @@ http://ricostacruz.com/cheatsheets/umdjs.html
       // Return only the elements from the array in the first argument,
       // that return truthy when passed to the logic in the second argument.
       // For parity with JavaScript, reindex the returned array
-      return scopedData.filter(function(datum){
-          return jsonLogic.truthy( jsonLogic.apply(scopedLogic, datum));
-      });
+      return await Promise.all(scopedData.filter(async function(datum){
+          return jsonLogic.truthy( await jsonLogic.apply(scopedLogic, datum));
+      }));
   }else if(op === 'map'){
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = await jsonLogic.apply(values[0], data);
       scopedLogic = values[1];
 
       if ( ! Array.isArray(scopedData)) {
           return [];
       }
 
-      return scopedData.map(function(datum){
-          return jsonLogic.apply(scopedLogic, datum);
-      });
+      return await Promise.all(scopedData.map(async function(datum){
+          return await jsonLogic.apply(scopedLogic, datum);
+      }));
 
   }else if(op === 'reduce'){
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = await jsonLogic.apply(values[0], data);
       scopedLogic = values[1];
       initial = typeof values[2] !== 'undefined' ? values[2] : null;
 
@@ -307,49 +307,49 @@ http://ricostacruz.com/cheatsheets/umdjs.html
           return initial;
       }
 
-      return scopedData.reduce(
-          function(accumulator, current){
-              return jsonLogic.apply(
+      return await Promise.all(scopedData.reduce(
+          async function(accumulator, current){
+              return await jsonLogic.apply(
                   scopedLogic,
                   {'current':current, 'accumulator':accumulator}
               );
           },
           initial
-      );
+      ));
 
     }else if(op === "all") {
-      scopedData = jsonLogic.apply(values[0], data);
+      scopedData = await jsonLogic.apply(values[0], data);
       scopedLogic = values[1];
       // All of an empty set is false. Note, some and none have correct fallback after the for loop
       if( ! scopedData.length) {
         return false;
       }
       for(i=0; i < scopedData.length; i+=1) {
-        if( ! jsonLogic.truthy( jsonLogic.apply(scopedLogic, scopedData[i]) )) {
+        if( ! jsonLogic.truthy( await jsonLogic.apply(scopedLogic, scopedData[i]) )) {
           return false; // First falsy, short circuit
         }
       }
       return true; // All were truthy
     }else if(op === "none") {
-      filtered = jsonLogic.apply({'filter' : values}, data);
+      filtered = await jsonLogic.apply({'filter' : values}, data);
       return filtered.length === 0;
 
     }else if(op === "some") {
-      filtered = jsonLogic.apply({'filter' : values}, data);
+      filtered = await jsonLogic.apply({'filter' : values}, data);
       return filtered.length > 0;
     }
 
     // Everyone else gets immediate depth-first recursion
-    values = values.map(function(val) {
-      return jsonLogic.apply(val, data);
-    });
+    values = await Promise.all(values.map(async function(val) {
+      return await jsonLogic.apply(val, data);
+    }));
 
 
     // The operation is called with "data" bound to its "this" and "values" passed as arguments.
     // Structured commands like % or > can name formal arguments while flexible commands (like missing or merge) can operate on the pseudo-array arguments
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Functions/arguments
     if(typeof operations[op] === "function") {
-      return operations[op].apply(data, values);
+      return await operations[op].apply(data, values);
     }else if(op.indexOf(".") > 0) { // Contains a dot, and not in the 0th position
       var sub_ops = String(op).split(".");
       var operation = operations;
@@ -361,8 +361,7 @@ http://ricostacruz.com/cheatsheets/umdjs.html
           " (failed at " + sub_ops.slice(0, i+1).join(".") + ")");
         }
       }
-
-      return operation.apply(data, values);
+      return await operation.apply(data, values);
     }
 
     throw new Error("Unrecognized operation " + op );
@@ -402,7 +401,6 @@ http://ricostacruz.com/cheatsheets/umdjs.html
   };
 
   jsonLogic.rule_like = function(rule, pattern) {
-    // console.log("Is ". JSON.stringify(rule) . " like " . JSON.stringify(pattern) . "?");
     if(pattern === rule) {
       return true;
     } // TODO : Deep object equivalency?
